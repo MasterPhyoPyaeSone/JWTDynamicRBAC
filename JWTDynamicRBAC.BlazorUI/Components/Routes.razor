@@ -1,0 +1,29 @@
+﻿@* <Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router> *@
+
+@* 💡 CascadingAuthenticationState ကို ဤနေရာတွင် အုပ်ပေးရပါမည် *@
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <Found Context="routeData">
+            @* 💡 ရိုးရိုး RouteView အစား AuthorizeRouteView ကို ပြောင်းသုံးထားသည် *@
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    <div class="alert alert-danger m-4">
+                        သင်သည် ဤစာမျက်နှာကို ကြည့်ရှုခွင့်မရှိပါ။ ကျေးဇူးပြု၍ Login ဝင်ပါ။
+                    </div>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not found</PageTitle>
+            <LayoutView Layout="@typeof(Layout.MainLayout)">
+                <p role="alert">Sorry, there's nothing at this address.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

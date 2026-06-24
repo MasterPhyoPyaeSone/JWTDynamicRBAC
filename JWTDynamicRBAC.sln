@@ -7,15 +7,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JWTDynamicRBAC.Database", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JWTDynamicRBAC.API", "JWTDynamicRBAC.API\JWTDynamicRBAC.API.csproj", "{8C4110A0-40E5-410B-9E35-5589F6FDBE29}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JWTDynamicRBAC.Blazor", "JWTDynamicRBAC.Blazor\JWTDynamicRBAC.Blazor.csproj", "{BB2301C8-B4B7-4686-8C54-D82C036E178D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JWTDynamicRBAC.BlazorUI", "JWTDynamicRBAC.BlazorUI\JWTDynamicRBAC.BlazorUI.csproj", "{F0B94BA3-AD61-4B81-ADE0-C4F3FF05D116}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{30ED3054-589E-4483-A30C-2980EC3493BC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -26,9 +23,12 @@ Global
 		{8C4110A0-40E5-410B-9E35-5589F6FDBE29}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8C4110A0-40E5-410B-9E35-5589F6FDBE29}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8C4110A0-40E5-410B-9E35-5589F6FDBE29}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BB2301C8-B4B7-4686-8C54-D82C036E178D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BB2301C8-B4B7-4686-8C54-D82C036E178D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BB2301C8-B4B7-4686-8C54-D82C036E178D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BB2301C8-B4B7-4686-8C54-D82C036E178D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F0B94BA3-AD61-4B81-ADE0-C4F3FF05D116}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F0B94BA3-AD61-4B81-ADE0-C4F3FF05D116}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F0B94BA3-AD61-4B81-ADE0-C4F3FF05D116}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F0B94BA3-AD61-4B81-ADE0-C4F3FF05D116}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,203 @@
+@page "/dashboard"
+@* @attribute [Authorize] *@
+@inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+@using System.Net.Http.Headers
+@inject HttpClient Http
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager Nav
+
+@* အပြင်ဆုံး Authorization စစ်ဆေးခြင်း *@
+<AuthorizeView>
+    <Authorized>
+        <div class="container mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Admin Dashboard</h2>
+
+                @* Create ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
+                <AuthorizeView Policy="Create_Product" Context="createCtx">
+                    <Authorized>
+                        <button class="btn btn-success" @onclick="ShowCreateForm">➕ Add New Product</button>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+
+            @* --- ဖောင် (Create / Edit) --- *@
+            @if (showForm)
+            {
+                <div class="card p-4 mb-4 shadow-sm">
+                    <h4>@(isEditMode ? "Edit Product" : "Add New Product")</h4>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">
+                            <input @bind="productModel.Name" class="form-control" placeholder="Product Name" />
+                        </div>
+                        <div class="col-md-4">
+                            <input @bind="productModel.Price" type="number" class="form-control" placeholder="Price" />
+                        </div>
+                        <div class="col-md-4">
+                            <input @bind="productModel.Description" class="form-control" placeholder="Description" />
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-primary" @onclick="SaveProduct">💾 Save</button>
+                        <button class="btn btn-secondary ms-2" @onclick="CancelForm">Cancel</button>
+                    </div>
+                </div>
+            }
+
+            @* --- ဇယား (Product Table) နှင့် View ခွင့်ပြုချက် --- *@
+            <AuthorizeView Policy="View_Product" Context="viewCtx">
+                <Authorized>
+                    <table class="table table-hover table-bordered bg-white shadow-sm">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Price</th>
+                                <th>Description</th>
+                                <th width="150">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in products)
+                            {
+                                <tr>
+                                    <td>@item.Id</td>
+                                    <td>@item.Name</td>
+                                    <td>$@item.Price</td>
+                                    <td>@item.Description</td>
+                                    <td>
+                                        @* Edit ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
+                                        <AuthorizeView Policy="Edit_Product" Context="editCtx">
+                                            <Authorized>
+                                                <button class="btn btn-sm btn-warning"
+                                                        @onclick="() => ShowEditForm(item)">Edit</button>
+                                            </Authorized>
+                                        </AuthorizeView>
+
+                                        @* Delete ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
+                                        <AuthorizeView Policy="Delete_Product" Context="delCtx">
+                                            <Authorized>
+                                                <button class="btn btn-sm btn-danger ms-1"
+                                                        @onclick="() => DeleteProduct(item.Id)">Delete</button>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </Authorized>
+                <NotAuthorized>
+                    <div class="alert alert-warning">သင်သည် ဤအချက်အလက်များကို ကြည့်ရှုခွင့်မရှိပါ။</div>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </Authorized>
+    @* <NotAuthorized>
+        <div class="alert alert-warning">သင်သည် ဤအချက်အလက်များကို ကြည့်ရှုခွင့်မရှိပါ။</div>
+    </NotAuthorized> *@
+</AuthorizeView>
+@code {
+    private List<ProductDto> products = new();
+    private ProductDto productModel = new();
+    private bool showForm = false;
+    private bool isEditMode = false;
+
+    // 💡 Cookie သုံးထားသဖြင့် OnInitializedAsync တွင် Data ချက်ချင်းဆွဲနိုင်ပါပြီ
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
+        Console.WriteLine("DEBUG: Cookie token is: " + (token ?? "NULL"));
+
+        if (!user.Identity.IsAuthenticated)
+        {
+            // 💡 ဒီနေရာမှာ ဘာကြောင့် မ Authentication ဖြစ်တာလဲဆိုတာကို
+            // မျက်စိနဲ့ မြင်ရအောင် စာသားထုတ်ပြကြည့်ပါ
+            Console.WriteLine("User is NOT authenticated!");
+        }
+        else
+        {
+            Console.WriteLine("User IS authenticated as: " + user.Identity.Name);
+        }
+
+        await LoadProducts();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // 💡 Page ပွင့်နေစဉ်အတွင်း Cookie ပျောက်သွားရင် ချက်ချင်းထုတ်ထုတ်ပစ်မယ်
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
+        if (string.IsNullOrEmpty(token))
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+    }
+
+    private async Task LoadProducts()
+    {
+        SetAuthHeader();
+        var response = await Http.GetAsync("api/Product");
+        if (response.IsSuccessStatusCode)
+        {
+            products = await response.Content.ReadFromJsonAsync<List<ProductDto>>() ?? new();
+        }
+    }
+
+    private async Task SaveProduct()
+    {
+        SetAuthHeader();
+        if (isEditMode) await Http.PutAsJsonAsync($"api/Product/{productModel.Id}", productModel);
+        else await Http.PostAsJsonAsync("api/Product", productModel);
+
+        showForm = false;
+        await LoadProducts();
+    }
+
+    private async Task DeleteProduct(int id)
+    {
+        SetAuthHeader();
+        await Http.DeleteAsync($"api/Product/{id}");
+        await LoadProducts();
+    }
+
+    // 💡 Cookie ထဲမှ Token ကို ယူ၍ Header တွင် ထည့်ပေးခြင်း
+    private void SetAuthHeader()
+    {
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
+        // 💡 အရေးကြီး: Token မရှိတော့ရင် Header ကို ရှင်းပစ်ပါ
+        if (string.IsNullOrEmpty(token))
+        {
+            Http.DefaultRequestHeaders.Authorization = null;
+            Nav.NavigateTo("/login", forceLoad: true); // ချက်ချင်း Redirect လုပ်ပါ
+            return;
+        }
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private void ShowCreateForm() { productModel = new ProductDto(); isEditMode = false; showForm = true; }
+    private void ShowEditForm(ProductDto item)
+    {
+        productModel = new ProductDto
+        {
+            Id = item.Id,
+            Name = item.Name,
+            Price = item.Price,
+            Description = item.Description
+        }; isEditMode = true; showForm = true;
+    }
+    private void CancelForm() { showForm = false; }
+
+    public class ProductDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public decimal Price { get; set; }
+        public string Description { get; set; } = "";
+    }
+}

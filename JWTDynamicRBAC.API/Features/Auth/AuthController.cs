@@ -20,8 +20,27 @@ namespace JWTDynamicRBAC.API.Features.Auth
         {
             var response = await _authService.LoginAsync(request);
             if (response == null) return Unauthorized("Invalid username or password.");
-            
-            return Ok(response);
+
+            // 💡 JWT token ကို HttpOnly cookie အနေနဲ့ Response မှာ set လုပ်ပေးမည်
+            // SameSite=None + Secure=false (localhost development အတွက်)
+            Response.Cookies.Append("authToken", response.Token, new CookieOptions
+            {
+                HttpOnly = true,           // JS ကနေ ဖတ်လို့မရ (XSS ကာကွယ်ရန်)
+                Secure = false,            // Development မှာ HTTP သုံးနိုင်ရန် false
+                SameSite = SameSiteMode.None, // Cross-origin Blazor ↔ API အတွက် None
+                Expires = DateTimeOffset.UtcNow.AddHours(2),
+                Path = "/"
+            });
+
+            // Token ကိုလည်း body မှာ ပါ return ပေးတယ် (client-side decode အတွက်)
+            return Ok(new { Token = response.Token, Message = "Login successful" });
+        }
+
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            Response.Cookies.Delete("authToken");
+            return Ok(new { Message = "Logged out" });
         }
     }
 }

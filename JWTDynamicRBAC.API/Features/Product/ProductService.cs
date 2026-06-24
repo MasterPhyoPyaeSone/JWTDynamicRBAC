@@ -56,7 +56,8 @@ namespace JWTDynamicRBAC.API.Features.Product
                 {
                     Id = p.Id,
                     Name = p.Name,
-                    Price = p.Price
+                    Price = p.Price,
+                    Description=p.Description
                 })
                 .ToListAsync();
         }
@@ -74,7 +75,8 @@ namespace JWTDynamicRBAC.API.Features.Product
             {
                 Id = product.Id,
                 Name = product.Name,
-                Price = product.Price
+                Price = product.Price,
+                Description=product.Description
             };
         }
 
@@ -92,6 +94,7 @@ namespace JWTDynamicRBAC.API.Features.Product
             // Data အသစ်များ အစားထိုးခြင်း
             existingProduct.Name = productDto.Name;
             existingProduct.Price = productDto.Price;
+            existingProduct.Description=productDto.Description;
 
             _context.Products.Update(existingProduct);
             await _context.SaveChangesAsync();

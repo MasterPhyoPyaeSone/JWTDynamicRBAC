@@ -1,0 +1,85 @@
+@page "/login"
+@rendermode InteractiveServer
+
+@inject HttpClient Http
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+
+<div class="card p-4 mx-auto mt-5" style="max-width: 400px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+    <h3 class="text-center mb-4">System Login</h3>
+    <input @bind="loginModel.Username" class="form-control mb-3" placeholder="Username" />
+    <input @bind="loginModel.Password" type="password" class="form-control mb-4" placeholder="Password" />
+    <button class="btn btn-primary w-100" @onclick="HandleLogin" disabled="@isLoading">
+        @(isLoading ? "Logging in…" : "Login")
+    </button>
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <p class="text-danger mt-3 text-center">@errorMessage</p>
+    }
+</div>
+
+@code {
+    private LoginDto loginModel = new();
+    private string errorMessage = "";
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = "";
+
+        try
+        {
+            // ၁။ API ကို Login request ပို့မည်
+            var response = await Http.PostAsync("api/Auth/login", JsonContent.Create(loginModel));
+
+            if (response.IsSuccessStatusCode)
+            {
+                // ၂။ Response body ထဲကနေ token ဖတ်မည်
+                var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
+                var token = result?.Token;
+
+                if (!string.IsNullOrEmpty(token))
+                {
+                    // ၃။ Token ကို cookie ထဲ set မည် (app.js ထဲမှ setCookieToken function ကို ခေါ်မည်)
+                    //await JS.InvokeVoidAsync("setCookieToken", token);
+                    await JS.InvokeVoidAsync("eval", $"document.cookie = \"authToken={result!.Token}; path=/; SameSite=Lax; Secure=false\";");
+
+                    // ၄။ AuthStateProvider ကို notify လုပ်မည်
+                    if (AuthStateProvider is JWTDynamicRBAC.BlazorUI.Auth.CustomAuthStateProvider customProvider)
+                    {
+                        customProvider.NotifyUserAuthentication(token);
+                    }
+                }
+
+                // ၅။ Dashboard ကို navigate မည်
+                Nav.NavigateTo("/dashboard", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = "❌ Invalid username or password.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"❌ Cannot connect to API: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class LoginDto
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+
+    public class LoginResponse
+    {
+        public string Token { get; set; } = "";
+        public string Message { get; set; } = "";
+    }
+}

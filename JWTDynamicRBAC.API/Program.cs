@@ -14,7 +14,18 @@ builder.Services.AddSwaggerGen();
 // Services များကို Register လုပ်ခြင်း
 builder.Services.AddScoped<JWTDynamicRBAC.API.Features.Auth.IAuthService, JWTDynamicRBAC.API.Features.Auth.AuthService>();
 builder.Services.AddScoped<JWTDynamicRBAC.API.Features.Product.IProductService, JWTDynamicRBAC.API.Features.Product.ProductService>();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazor", policy =>
+    {
+        policy.WithOrigins("http://localhost:5014") 
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials(); 
+    });
+});
 
+// app.UseCors("AllowBlazor"); // 💡 app.UseRouting() ရဲ့ အောက်မှာ ထည့်ပေးရပါမယ်
 //step 1 , DI for DB
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -109,7 +120,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+app.UseCors("AllowBlazor");
+app.UseRouting();
+// app.UseHttpsRedirection();
 // Authentication က Authorization ထက် အရင်လာရပါမည်
 app.UseAuthentication();
 app.UseAuthorization();
