@@ -1,13 +1,29 @@
-﻿@inherits LayoutComponentBase
-
+﻿@using JWTDynamicRBAC.BlazorUI.Auth
+@inject AuthenticationStateProvider AuthStateProvider
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject HttpClient Http
+@inject IJSRuntime JS
 <div class="page">
     <div class="sidebar">
         <NavMenu />
     </div>
 
     <main>
+
         <div class="top-row px-4">
             <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <AuthorizeView>
+                <Authorized>
+                        <button style="border: none; background: none;color:rgb(22, 110, 250);margin-left:30px" @onclick="HandleLogout">Logout</button>
+                </Authorized>
+                <NotAuthorized>
+                    <NavLink class="nav-link" href="/login" Match="NavLinkMatch.All">
+                        <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Login
+                    </NavLink>
+                </NotAuthorized>
+            </AuthorizeView>
+
         </div>
 
         <article class="content px-4">
@@ -21,3 +37,18 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private async Task HandleLogout()
+    {
+        // 💡 API ကို တိုက်ရိုက် ခေါ်ပါ
+        await Http.PostAsync("api/auth/logout", null);
+
+        // 💡 Browser Cookie ကို Client-side မှာလည်း ဖျက်ပါ
+        await JS.InvokeVoidAsync("eval", "document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'");
+        //((CustomAuthStateProvider)AuthStateProvider).NotifyUserLogout();
+
+        // 💡 Login စာမျက်နှာသို့ အတင်းပြန်ပို့ပါ
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

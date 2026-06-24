@@ -31,6 +31,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest; 
     });
 builder.Services.AddAuthorization();
+builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicPolicyProvider>();

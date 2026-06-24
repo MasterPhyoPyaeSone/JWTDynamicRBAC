@@ -39,7 +39,8 @@ namespace JWTDynamicRBAC.BlazorUI.Auth
 
         public void NotifyUserLogout()
         {
-            NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
+             NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
+         
         }
 
         private IEnumerable<Claim> ParseClaimsFromJwt(string jwt)
