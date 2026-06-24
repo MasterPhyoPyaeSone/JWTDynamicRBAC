@@ -1,0 +1,73 @@
+## ---------------------------------------------------------------------------
+## .NET / C# / ASP.NET Core အပိုင်း
+## ---------------------------------------------------------------------------
+# Build ဖိုင်များ (Git ထဲ မပါသင့်ပါ)
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+
+# Publish လုပ်ထားသော ဖိုင်များ
+Publish/
+publish/
+[Pp]ublish[Oo]utput/
+
+# ကိုယ်ပိုင် User-specific ဖိုင်များ
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+## ---------------------------------------------------------------------------
+## Visual Studio / VS Code အပိုင်း
+## ---------------------------------------------------------------------------
+# Visual Studio ၏ လျှို့ဝှက် Folder များ
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sqlite
+
+# Resharper / Rider
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+.idea/
+
+## ---------------------------------------------------------------------------
+## လုံခြုံရေးဆိုင်ရာ ဖိုင်များ (အရေးကြီးသည်)
+## ---------------------------------------------------------------------------
+# ကိုယ်ပိုင် Database လျှို့ဝှက်ချက်များ၊ API Key များ ပါတတ်သောကြောင့် ထည့်မထားသင့်ပါ
+appsettings.Local.json
+appsettings.Development.json
+*.env
+secrets.json
+
+## ---------------------------------------------------------------------------
+## OS မှ အလိုအလျောက် ထုတ်ပေးသော ဖိုင်များ (Mac / Windows)
+## ---------------------------------------------------------------------------
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+## ---------------------------------------------------------------------------
+## Log များနှင့် အခြား Cache များ
+## ---------------------------------------------------------------------------
+*.log
+logs/
+TestResults/
+BenchmarkDotNet.Artifacts/
+project.lock.json
