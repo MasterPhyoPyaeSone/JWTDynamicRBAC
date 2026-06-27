@@ -36,7 +36,7 @@ namespace JWTDynamicRBAC.API.Features.Product
 
         // ==========================================
         // 2. READ ALL (GET: api/Product)
-        // ==========================================
+        // ==========================================GetAllProductsAsync
         [HttpGet]
         [Permission("View_Product")]
         public async Task<IActionResult> GetAllProducts()

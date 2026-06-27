@@ -1,0 +1,163 @@
+@page "/role-permissions"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpContextAccessor
+@using System.Net.Http.Headers
+
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <h3>Manage Role Permissions</h3>
+
+        @if (isLoading)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <div class="row">
+                <div class="col-md-4">
+                    <label>Select Role:</label>
+                    <select class="form-select" @onchange="OnRoleChanged">
+                        <option value="0">-- Select a Role --</option>
+                        @foreach (var role in roles)
+                        {
+                            <option value="@role.Id">@role.RoleName</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            @if (selectedRoleId > 0)
+            {
+                <div class="mt-4">
+                    <h4>Permissions for @selectedRoleName</h4>
+                    <hr />
+                    <div class="row">
+                        @foreach (var permission in allPermissions)
+                        {
+                            <div class="col-md-3 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="perm_@permission.Id"
+                                           checked="@selectedPermissionIds.Contains(permission.Id)"
+                                           @onchange="@(e => OnPermissionToggled(permission.Id, e.Value))" />
+                                    <label class="form-check-label" for="perm_@permission.Id">
+                                        @permission.PermissionName
+                                    </label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <button class="btn btn-primary mt-3" @onclick="SavePermissions">Save Permissions</button>
+
+                    @if (!string.IsNullOrEmpty(statusMessage))
+                    {
+                        <div class="alert alert-success mt-2">@statusMessage</div>
+                    }
+                </div>
+            }
+        }
+    </Authorized>
+</AuthorizeView>
+@code {
+    private bool isLoading = true;
+    private int selectedRoleId = 0;
+    private string selectedRoleName = "";
+    private string statusMessage = "";
+
+    // Data Models
+    private List<RoleDto> roles = new();
+    private List<PermissionDto> allPermissions = new();
+
+    // ရွေးချယ်ထားသော Permission IDs များကို သိမ်းဆည်းရန်
+    private HashSet<int> selectedPermissionIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (!user.Identity.IsAuthenticated || !user.IsInRole("Admin"))
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+        // Role များနှင့် Permission အားလုံးကို API မှ ယူမည်
+        roles = await Http.GetFromJsonAsync<List<RoleDto>>("api/roles") ?? new();
+        allPermissions = await Http.GetFromJsonAsync<List<PermissionDto>>("api/roles/permissions") ?? new();
+        isLoading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var token =  HttpContextAccessor.HttpContext?.Request.Cookies[key: "authToken"];
+        if(string.IsNullOrEmpty(token))
+        {
+            Nav.NavigateTo("/login",forceLoad: true);
+        }
+    }  
+
+    private void SetAuthHeader()
+    {
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies[key: "authToken"];
+        if(string.IsNullOrEmpty(token)){
+            Http.DefaultRequestHeaders.Authorization=null;
+            Nav.NavigateTo("/login",forceLoad: true);
+        }
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+    }
+    private async Task OnRoleChanged(ChangeEventArgs e)
+    {
+        statusMessage = "";
+        if (int.TryParse(e.Value?.ToString(), out int roleId) && roleId > 0)
+        {
+            selectedRoleId = roleId;
+            selectedRoleName = roles.FirstOrDefault(r => r.Id == roleId)?.RoleName ?? "";
+
+            // ရွေးချယ်လိုက်သော Role ၏ လက်ရှိ Permission များကို API မှ ယူမည်
+            SetAuthHeader();
+            var existingPerms = await Http.GetFromJsonAsync<List<int>>($"api/roles/{roleId}/permissions");
+            selectedPermissionIds = new HashSet<int>(existingPerms ?? new List<int>());
+        }
+        else
+        {
+            selectedRoleId = 0;
+            selectedPermissionIds.Clear();
+        }
+    }
+
+    private void OnPermissionToggled(int permissionId, object? isChecked)
+    {
+        if (isChecked is bool check && check)
+        {
+            selectedPermissionIds.Add(permissionId);
+        }
+        else
+        {
+            selectedPermissionIds.Remove(permissionId);
+        }
+    }
+
+    private async Task SavePermissions()
+    {
+            SetAuthHeader();
+
+        var response = await Http.PostAsJsonAsync($"api/roles/{selectedRoleId}/permissions", selectedPermissionIds.ToList());
+
+        if (response.IsSuccessStatusCode)
+        {
+            statusMessage = "Permissions updated successfully!";
+        }
+        else
+        {
+            statusMessage = "Error updating permissions.";
+        }
+    }
+
+    // DTO Classes
+    public class RoleDto { public int Id { get; set; } public string RoleName { get; set; } = ""; }
+    public class PermissionDto { public int Id { get; set; } public string PermissionName { get; set; } = ""; }
+}

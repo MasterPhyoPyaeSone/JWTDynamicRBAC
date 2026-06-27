@@ -1,0 +1,508 @@
+@page "/users"
+@using System.Net.Http.Json
+@inject HttpClient Http
+@using System.Net.Http.Headers
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Nav
+@inject IHttpContextAccessor HttpContextAccessor
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+
+        <PageTitle>User Management</PageTitle>
+
+        <div class="container-fluid mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>User Management</h2>
+                <button class="btn btn-primary" @onclick="OpenCreateModal">
+                    <i class="bi bi-person-plus me-1"></i> အကောင့်သစ်ဖန်တီးရန်
+                </button>
+            </div>
+
+            @if (isLoading)
+            {
+                <div class="d-flex justify-content-center my-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @errorMessage
+                </div>
+            }
+            else
+            {
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (users.Any())
+                                    {
+                                        foreach (var user in users)
+                                        {
+                                            <tr>
+                                                <td>@user.Id</td>
+                                                <td class="fw-bold">@user.Username</td>
+                                                <td>
+                                                    @if (string.IsNullOrEmpty(user.RoleName))
+                                                    {
+                                                        <span class="badge bg-secondary">No Role</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-info text-dark">@user.RoleName</span>
+                                                    }
+                                                </td>
+                                                <td class="text-end">
+                                                    <button class="btn btn-sm btn-outline-secondary me-2"
+                                                            @onclick="() => OpenEditModal(user)">
+                                                        <i class="bi bi-pencil"></i> ပြင်ဆင်ရန်
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger"
+                                                            @onclick="() => ConfirmDelete(user)">
+                                                        <i class="bi bi-trash"></i> ဖျက်ရန်
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted py-4">အချက်အလက် မရှိသေးပါ။</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* --- Modal for Create/Edit Form --- *@
+        @if (isModalOpen)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5); overflow-y: auto;">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-light">
+                            <h5 class="modal-title">@(isEditing ? "အကောင့် ပြင်ဆင်ရန်" : "အကောင့်သစ် ဖန်တီးရန်")</h5>
+                            <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <EditForm Model="currentUser" OnValidSubmit="SaveUser" Context="editContextForm">
+                                <DataAnnotationsValidator />
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Username <span class="text-danger">*</span></label>
+                                            <InputText class="form-control" @bind-Value="currentUser.Username"
+                                                       placeholder="Enter username" />
+                                            <ValidationMessage For="@(() => currentUser.Username)" class="text-danger" />
+                                        </div>
+
+                                        @if (!isEditing)
+                                        {
+                                            <div class="mb-3">
+                                                <label class="form-label">Password <span class="text-danger">*</span></label>
+                                                <InputText type="password" class="form-control"
+                                                           @bind-Value="currentUser.Password" placeholder="Enter password" />
+                                                <ValidationMessage For="@(() => currentUser.Password)" class="text-danger" />
+                                            </div>
+                                        }
+
+                                        <div class="mb-3">
+                                            <label class="form-label">Assign Role</label>
+                                            <select class="form-select" value="@currentUser.RoleId"
+                                                    @onchange="OnRoleSelectionChanged">
+                                                <option value="">-- Role မရွေးချယ်ပါ --</option>
+                                                @foreach (var role in roles)
+                                                {
+                                                    <option value="@role.Id">@role.RoleName</option>
+                                                }
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <div class="card border-primary">
+                                            <div class="card-header bg-primary text-white py-2">
+                                                <h6 class="mb-0">Role မှ ရရှိမည့် Permission များ</h6>
+                                            </div>
+                                            <div class="card-body" style="max-height: 250px; overflow-y: auto;">
+                                                @if (currentUser.RoleId == null || currentUser.RoleId == 0)
+                                                {
+                                                    <span class="text-muted">Role ရွေးချယ်ထားခြင်း မရှိပါ။</span>
+                                                }
+                                                else if (allPermissions.Any())
+                                                {
+                                                    @foreach (var permission in allPermissions)
+                                                    {
+                                                        <div class="form-check form-switch mb-2">
+                                                            <input class="form-check-input" type="checkbox" id="perm_@permission.Id"
+                                                                   checked="@selectedPermissionIds.Contains(permission.Id)" disabled />
+                                                            <label class="form-check-label text-muted" for="perm_@permission.Id">
+                                                                @permission.PermissionName
+                                                            </label>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">Permission များ မရှိသေးပါ။</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="modal-footer px-0 pb-0 mt-3">
+                                    <button type="button" class="btn btn-secondary"
+                                            @onclick="CloseModal">ပယ်ဖျက်မည်</button>
+                                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                        @if (isSaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status"
+                                                  aria-hidden="true"></span>
+                                            <span>သိမ်းနေသည်...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>သိမ်းဆည်းမည်</span>
+                                        }
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* --- Modal for Delete Confirmation --- *@
+        @if (isDeleteModalOpen)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-sm">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">ဖျက်ရန် သေချာပါသလား?</h5>
+                            <button type="button" class="btn-close btn-close-white" @onclick="CloseDeleteModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <strong>@userToDelete?.Username</strong> ကို ဖျက်ရန် သေချာပြီလား?
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseDeleteModal">မလုပ်ပါ</button>
+                            <button type="button" class="btn btn-danger" @onclick="ExecuteDeleteUser"
+                                    disabled="@isDeleting">
+                                @if (isDeleting)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                }
+                                else
+                                {
+                                    <span>ဖျက်မည်</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+    </Authorized>
+</AuthorizeView>
+@code {
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isDeleting = false;
+    private string errorMessage = "";
+
+    // Modal States
+    private bool isModalOpen = false;
+    private bool isEditing = false;
+    private bool isDeleteModalOpen = false;
+
+    // Data Collections
+    private List<UserDto> users = new();
+    private List<RoleDto> roles = new();
+    private List<PermissionDto> allPermissions = new();
+
+    // User ၏ Role မှ ရရှိသော Permission IDs များကို ပြသရန်သာ အသုံးပြုမည်
+    private HashSet<int> selectedPermissionIds = new();
+
+    // Models for Binding
+    private UserFormDto currentUser = new();
+    private UserDto? userToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if (!user.Identity.IsAuthenticated || !user.IsInRole("Admin"))
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+        await LoadDataAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies[key: "authToken"];
+        if (string.IsNullOrEmpty(token))
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+        Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+    }
+    private void SetAuthHeader()
+    {
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
+        // 💡 အရေးကြီး: Token မရှိတော့ရင် Header ကို ရှင်းပစ်ပါ
+        if (string.IsNullOrEmpty(token))
+        {
+            Http.DefaultRequestHeaders.Authorization = null;
+            Nav.NavigateTo("/login", forceLoad: true); // ချက်ချင်း Redirect လုပ်ပါ
+            return;
+        }
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        errorMessage = "";
+        try
+        {
+            // API များမှ လိုအပ်သော ဒေတာများ ဆွဲယူခြင်း
+            SetAuthHeader();
+            roles = await Http.GetFromJsonAsync<List<RoleDto>>("api/roles") ?? new();
+            allPermissions = await Http.GetFromJsonAsync<List<PermissionDto>>("api/permissions") ?? new();
+            users = await Http.GetFromJsonAsync<List<UserDto>>("api/users") ?? new();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Data များဆွဲယူရာတွင် အမှားအယွင်းဖြစ်နေပါသည်။ API run ထားခြင်း ရှိ/မရှိ စစ်ဆေးပါ။";
+            Console.WriteLine(ex);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task SaveUser()
+    {
+        isSaving = true;
+        errorMessage = "";
+
+        try
+        {
+            HttpResponseMessage response;
+
+            if (isEditing)
+            {
+                var updateDto = new UpdateUserDto
+                {
+                    Username = currentUser.Username,
+                    RoleId = currentUser.RoleId
+                };
+                SetAuthHeader();
+                response = await Http.PutAsJsonAsync($"api/users/{currentUser.Id}", updateDto);
+            }
+            else
+            {
+                var createDto = new CreateUserDto
+                {
+                    Username = currentUser.Username,
+                    Password = currentUser.Password,
+                    RoleId = currentUser.RoleId
+                };
+                SetAuthHeader();
+                response = await Http.PostAsJsonAsync("api/users", createDto);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadDataAsync();
+                CloseModal();
+            }
+            else
+            {
+                errorMessage = "သိမ်းဆည်းရာတွင် အမှားအယွင်းဖြစ်နေပါသည်။";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ExecuteDeleteUser()
+    {
+        if (userToDelete == null) return;
+        isDeleting = true;
+        try
+        {
+            SetAuthHeader();
+            var response = await Http.DeleteAsync($"api/users/{userToDelete.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadDataAsync();
+                CloseDeleteModal();
+            }
+        }
+        catch (Exception) { /* Handle error */ }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    // --- Modal Controls ---
+    private void OpenCreateModal()
+    {
+        isEditing = false;
+        currentUser = new UserFormDto();
+        selectedPermissionIds.Clear();
+        isModalOpen = true;
+    }
+
+    private async Task OpenEditModal(UserDto user)
+    {
+        isEditing = true;
+        currentUser = new UserFormDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            RoleId = user.RoleId
+        };
+
+        selectedPermissionIds.Clear();
+        isModalOpen = true;
+
+        if (user.RoleId.HasValue && user.RoleId > 0)
+        {
+            await FetchRolePermissions(user.RoleId.Value);
+        }
+    }
+
+    private async Task OnRoleSelectionChanged(ChangeEventArgs e)
+    {
+        selectedPermissionIds.Clear();
+
+        if (int.TryParse(e.Value?.ToString(), out int newRoleId) && newRoleId > 0)
+        {
+            currentUser.RoleId = newRoleId;
+            await FetchRolePermissions(newRoleId);
+        }
+        else
+        {
+            currentUser.RoleId = null;
+        }
+    }
+
+    private async Task FetchRolePermissions(int roleId)
+    {
+        try
+        {
+            SetAuthHeader();
+            var rolePerms = await Http.GetFromJsonAsync<List<int>>($"api/roles/{roleId}/permissions");
+            if (rolePerms != null)
+            {
+                foreach (var permId in rolePerms)
+                {
+                    selectedPermissionIds.Add(permId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching role permissions: {ex.Message}");
+        }
+    }
+
+    private void CloseModal()
+    {
+        isModalOpen = false;
+        errorMessage = "";
+    }
+
+    private void ConfirmDelete(UserDto user)
+    {
+        userToDelete = user;
+        isDeleteModalOpen = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        isDeleteModalOpen = false;
+        userToDelete = null;
+    }
+
+    // ====================================================================
+    // Data Transfer Objects (DTOs)
+    // ====================================================================
+
+    public class UserDto
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public int? RoleId { get; set; }
+        public string? RoleName { get; set; }
+    }
+
+    public class RoleDto
+    {
+        public int Id { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+    }
+
+    public class PermissionDto
+    {
+        public int Id { get; set; }
+        public string PermissionName { get; set; } = string.Empty;
+    }
+
+    public class CreateUserDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public int? RoleId { get; set; }
+    }
+
+    public class UpdateUserDto
+    {
+        public string Username { get; set; } = string.Empty;
+        public int? RoleId { get; set; }
+    }
+
+    public class UserFormDto
+    {
+        public int Id { get; set; }
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Username ထည့်ရန် လိုအပ်ပါသည်။")]
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public int? RoleId { get; set; }
+    }
+}

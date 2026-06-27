@@ -24,6 +24,20 @@
     private string errorMessage = "";
     private bool isLoading = false;
 
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Get the current authentication state
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        // 2. Check if the user is already authenticated
+        if (user.Identity != null && user.Identity.IsAuthenticated)
+        {
+            // 3. Redirect them away from the login page
+            Nav.NavigateTo("/", forceLoad: true); // Or redirect to "/dashboard"
+        }
+    }
+
     private async Task HandleLogin()
     {
         isLoading = true;
@@ -44,7 +58,7 @@
                 {
                     // ၃။ Token ကို cookie ထဲ set မည် (app.js ထဲမှ setCookieToken function ကို ခေါ်မည်)
                     //await JS.InvokeVoidAsync("setCookieToken", token);
-                    await JS.InvokeVoidAsync("eval", $"document.cookie = \"authToken={result!.Token}; path=/; SameSite=Lax; Secure=false\";");
+                    await JS.InvokeVoidAsync(identifier: "eval", $"document.cookie = \"authToken={result!.Token}; path=/; SameSite=Lax; Secure=false\";");
 
                     // ၄။ AuthStateProvider ကို notify လုပ်မည်
                     if (AuthStateProvider is JWTDynamicRBAC.BlazorUI.Auth.CustomAuthStateProvider customProvider)

@@ -48,46 +48,47 @@
 
             @* --- ဇယား (Product Table) နှင့် View ခွင့်ပြုချက် --- *@
             <AuthorizeView Policy="View_Product" Context="viewCtx">
-                <Authorized>
-                    <table class="table table-hover table-bordered bg-white shadow-sm">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>Price</th>
-                                <th>Description</th>
-                                <th width="150">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in products)
-                            {
+                <Authorized>               
+                        <table class="table table-hover table-bordered bg-white shadow-sm">
+                            <thead class="table-dark">
                                 <tr>
-                                    <td>@item.Id</td>
-                                    <td>@item.Name</td>
-                                    <td>$@item.Price</td>
-                                    <td>@item.Description</td>
-                                    <td>
-                                        @* Edit ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
-                                        <AuthorizeView Policy="Edit_Product" Context="editCtx">
-                                            <Authorized>
-                                                <button class="btn btn-sm btn-warning"
-                                                        @onclick="() => ShowEditForm(item)">Edit</button>
-                                            </Authorized>
-                                        </AuthorizeView>
-
-                                        @* Delete ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
-                                        <AuthorizeView Policy="Delete_Product" Context="delCtx">
-                                            <Authorized>
-                                                <button class="btn btn-sm btn-danger ms-1"
-                                                        @onclick="() => DeleteProduct(item.Id)">Delete</button>
-                                            </Authorized>
-                                        </AuthorizeView>
-                                    </td>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Price</th>
+                                    <th>Description</th>
+                                    <th width="150">Actions</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in products)
+                                {
+                                    <tr>
+                                        <td>@item.Id</td>
+                                        <td>@item.Name</td>
+                                        <td>$@item.Price</td>
+                                        <td>@item.Description</td>
+                                        <td>
+                                            @* Edit ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
+                                            <AuthorizeView Policy="Edit_Product" Context="editCtx">
+                                                <Authorized>
+                                                    <button class="btn btn-sm btn-warning"
+                                                            @onclick="() => ShowEditForm(item)">Edit</button>
+                                                </Authorized>
+                                            </AuthorizeView>
+
+                                            @* Delete ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
+                                            <AuthorizeView Policy="Delete_Product" Context="delCtx">
+                                                <Authorized>
+                                                    <button class="btn btn-sm btn-danger ms-1"
+                                                            @onclick="() => DeleteProduct(item.Id)">Delete</button>
+                                                </Authorized>
+                                            </AuthorizeView>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    
                 </Authorized>
                 <NotAuthorized>
                     <div class="alert alert-warning">သင်သည် ဤအချက်အလက်များကို ကြည့်ရှုခွင့်မရှိပါ။</div>
@@ -95,9 +96,6 @@
             </AuthorizeView>
         </div>
     </Authorized>
-    @* <NotAuthorized>
-        <div class="alert alert-warning">သင်သည် ဤအချက်အလက်များကို ကြည့်ရှုခွင့်မရှိပါ။</div>
-    </NotAuthorized> *@
 </AuthorizeView>
 @code {
     private List<ProductDto> products = new();
@@ -118,6 +116,7 @@
         {
             // 💡 ဒီနေရာမှာ ဘာကြောင့် မ Authentication ဖြစ်တာလဲဆိုတာကို
             // မျက်စိနဲ့ မြင်ရအောင် စာသားထုတ်ပြကြည့်ပါ
+            Nav.NavigateTo("/login",forceLoad: true);
             Console.WriteLine("User is NOT authenticated!");
         }
         else
@@ -130,12 +129,32 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+       if (firstRender)
+        { 
+            await LoadProducts(); 
+            StateHasChanged(); 
+        }
         // 💡 Page ပွင့်နေစဉ်အတွင်း Cookie ပျောက်သွားရင် ချက်ချင်းထုတ်ထုတ်ပစ်မယ်
         var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
         if (string.IsNullOrEmpty(token))
         {
             Nav.NavigateTo("/login", forceLoad: true);
         }
+    }
+
+    // 💡 Cookie ထဲမှ Token ကို ယူ၍ Header တွင် ထည့်ပေးခြင်း
+    private void SetAuthHeader()
+    {
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
+        // 💡 အရေးကြီး: Token မရှိတော့ရင် Header ကို ရှင်းပစ်ပါ
+        if (string.IsNullOrEmpty(token))
+        {
+            Http.DefaultRequestHeaders.Authorization = null;
+            Nav.NavigateTo("/login", forceLoad: true); // ချက်ချင်း Redirect လုပ်ပါ
+            return;
+        }
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
     private async Task LoadProducts()
@@ -165,22 +184,11 @@
         await LoadProducts();
     }
 
-    // 💡 Cookie ထဲမှ Token ကို ယူ၍ Header တွင် ထည့်ပေးခြင်း
-    private void SetAuthHeader()
-    {
-        var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
-        // 💡 အရေးကြီး: Token မရှိတော့ရင် Header ကို ရှင်းပစ်ပါ
-        if (string.IsNullOrEmpty(token))
-        {
-            Http.DefaultRequestHeaders.Authorization = null;
-            Nav.NavigateTo("/login", forceLoad: true); // ချက်ချင်း Redirect လုပ်ပါ
-            return;
-        }
-
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    private void ShowCreateForm() 
+    { 
+        productModel = new ProductDto(); 
+        isEditMode = false; showForm = true; 
     }
-
-    private void ShowCreateForm() { productModel = new ProductDto(); isEditMode = false; showForm = true; }
     private void ShowEditForm(ProductDto item)
     {
         productModel = new ProductDto

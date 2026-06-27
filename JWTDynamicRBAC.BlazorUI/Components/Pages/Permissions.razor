@@ -1,0 +1,373 @@
+@page "/permissions"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager Nav
+@using System.Net.Http.Headers
+@inject AuthenticationStateProvider AuthStateProvider
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <PageTitle>Manage Permissions</PageTitle>
+
+        <div class="container-fluid mt-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Permission Management</h2>
+                <button class="btn btn-primary" @onclick="OpenAddModal">
+                    <i class="bi bi-plus-circle me-1"></i> Add New Permission
+                </button>
+            </div>
+
+            @if (isLoading)
+            {
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    @errorMessage
+                </div>
+            }
+            else
+            {
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-striped mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Permission Name</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (permissions.Any())
+                                    {
+                                        foreach (var permission in permissions)
+                                        {
+                                            <tr>
+                                                <td>@permission.Id</td>
+                                                <td class="fw-bold">@permission.PermissionName</td>
+                                                <td class="text-end">
+                                                    <button class="btn btn-sm btn-outline-secondary me-2"
+                                                            @onclick="() => OpenEditModal(permission)">
+                                                        <i class="bi bi-pencil"></i> Edit
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger"
+                                                            @onclick="() => ConfirmDelete(permission)">
+                                                        <i class="bi bi-trash"></i> Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted py-4">No permissions found.</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* --- Modal for Add/Edit --- *@
+        @if (isModalOpen)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">@(isEditing ? "Edit Permission" : "Add New Permission")</h5>
+                            <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <EditForm Model="currentPermission" OnValidSubmit="SavePermission" Context="editContext">
+                                <DataAnnotationsValidator />
+
+                                <div class="mb-3">
+                                    <label class="form-label">Permission Name <span class="text-danger">*</span></label>
+                                    <InputText class="form-control" @bind-Value="currentPermission.PermissionName"
+                                               placeholder="e.g., ViewDashboard" />
+                                    <ValidationMessage For="@(() => currentPermission.PermissionName)"
+                                                       class="text-danger" />
+                                </div>
+
+                      
+
+                                <div class="modal-footer px-0 pb-0">
+                                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+                                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                        @if (isSaving)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" role="status"
+                                                  aria-hidden="true"></span>
+                                            <span>Saving...</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Save</span>
+                                        }
+                                    </button>
+                                </div>
+                            </EditForm>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* --- Modal for Delete Confirmation --- *@
+        @if (isDeleteModalOpen)
+        {
+            <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-sm">
+                    <div class="modal-content">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">Confirm Delete</h5>
+                            <button type="button" class="btn-close btn-close-white" @onclick="CloseDeleteModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            Are you sure you want to delete the permission
+                            <strong>@permissionToDelete?.PermissionName</strong>?
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseDeleteModal">Cancel</button>
+                            <button type="button" class="btn btn-danger" @onclick="DeletePermission" disabled="@isDeleting">
+                                @if (isDeleting)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    <span>Deleting...</span>
+                                }
+                                else
+                                {
+                                    <span>Delete</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </Authorized>
+</AuthorizeView>
+@code {
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isDeleting = false;
+    private string errorMessage = "";
+
+    // Modal State
+    private bool isModalOpen = false;
+    private bool isEditing = false;
+    private bool isDeleteModalOpen = false;
+
+    // Data
+    private List<PermissionDto> permissions = new();
+    private PermissionFormDto currentPermission = new();
+    private PermissionDto? permissionToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        if(!user.Identity.IsAuthenticated || !user.IsInRole("Admin")) 
+        {
+             Nav.NavigateTo("/login", forceLoad: true);
+        }
+        await LoadPermissions();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        { 
+            await LoadPermissions(); 
+            StateHasChanged(); 
+        }
+
+        // 💡 Page ပွင့်နေစဉ်အတွင်း Cookie ပျောက်သွားရင် ချက်ချင်းထုတ်ထုတ်ပစ်မယ်
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies[key: "authToken"];
+        if (string.IsNullOrEmpty(token))
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
+        }
+    }
+
+    // 💡 Cookie ထဲမှ Token ကို ယူ၍ Header တွင် ထည့်ပေးခြင်း
+    private void SetAuthHeader()
+    {
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
+        if (string.IsNullOrEmpty(token))
+        {
+            Http.DefaultRequestHeaders.Authorization = null;
+            Nav.NavigateTo("/login", forceLoad: true); // ချက်ချင်း Redirect လုပ်ပါ
+            return;
+        }
+
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private async Task LoadPermissions()
+    {
+        isLoading = true;
+        errorMessage = "";
+        try
+        {
+            SetAuthHeader();
+
+            var result = await Http.GetFromJsonAsync<List<PermissionDto>>("api/permissions");
+            if (result != null)
+            {
+                permissions = result;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load permissions: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // --- Modal Controls ---
+    private void OpenAddModal()
+    {
+        isEditing = false;
+        currentPermission = new PermissionFormDto(); // Reset form
+        isModalOpen = true;
+    }
+
+    private void OpenEditModal(PermissionDto permission)
+    {
+        isEditing = true;
+        // Copy data so we don't modify the list directly until saved
+        currentPermission = new PermissionFormDto
+        {
+            Id = permission.Id,
+            PermissionName = permission.PermissionName,
+        };
+        isModalOpen = true;
+    }
+
+    private void CloseModal()
+    {
+        isModalOpen = false;
+    }
+
+    private void ConfirmDelete(PermissionDto permission)
+    {
+        permissionToDelete = permission;
+        isDeleteModalOpen = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        isDeleteModalOpen = false;
+        permissionToDelete = null;
+    }
+
+    // --- CRUD Operations ---
+    private async Task SavePermission()
+    {
+        isSaving = true;
+        try
+        {
+            HttpResponseMessage response;
+            if (isEditing)
+            {
+                // UPDATE
+                SetAuthHeader();
+
+                response = await Http.PutAsJsonAsync($"api/permissions/{currentPermission.Id}", currentPermission);
+            }
+            else
+            {
+                // CREATE
+                SetAuthHeader();
+
+                response = await Http.PostAsJsonAsync("api/permissions", currentPermission);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadPermissions(); // Refresh the list
+                CloseModal();
+            }
+            else
+            {
+                // Handle API validation errors (e.g., "Permission already exists")
+                var error = await response.Content.ReadAsStringAsync();
+                // You could display this error in the modal
+                Console.WriteLine($"Error saving: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception saving: {ex.Message}");
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeletePermission()
+    {
+        if (permissionToDelete == null) return;
+
+        isDeleting = true;
+        try
+        {
+            SetAuthHeader();
+
+            var response = await Http.DeleteAsync($"api/permissions/{permissionToDelete.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadPermissions(); // Refresh the list
+                CloseDeleteModal();
+            }
+            else
+            {
+                Console.WriteLine("Error deleting permission.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception deleting: {ex.Message}");
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    // --- DTOs (Place these in your shared project or at the bottom of the file) ---
+    public class PermissionDto
+    {
+        public int Id { get; set; }
+        public string PermissionName { get; set; } = "";
+    }
+
+    // Used specifically for the form to utilize validation annotations
+    public class PermissionFormDto
+    {
+        public int Id { get; set; }
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Permission Name is required.")]
+        public string PermissionName { get; set; } = "";
+
+        
+    }
+}
