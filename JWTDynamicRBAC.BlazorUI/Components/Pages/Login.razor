@@ -58,8 +58,9 @@
                 {
                     // ၃။ Token ကို cookie ထဲ set မည် (app.js ထဲမှ setCookieToken function ကို ခေါ်မည်)
                     //await JS.InvokeVoidAsync("setCookieToken", token);
-                    await JS.InvokeVoidAsync(identifier: "eval", $"document.cookie = \"authToken={result!.Token}; path=/; SameSite=Lax; Secure=false\";");
+                   // await JS.InvokeVoidAsync(identifier: "eval", $"document.cookie = \"authToken={result!.Token}; path=/; SameSite=Lax; Secure=false\";");
 
+                    await JS.InvokeVoidAsync("authFunctions.setSecureCookie", "authToken", result!.Token, 1);
                     // ၄။ AuthStateProvider ကို notify လုပ်မည်
                     if (AuthStateProvider is JWTDynamicRBAC.BlazorUI.Auth.CustomAuthStateProvider customProvider)
                     {

@@ -52,7 +52,7 @@ namespace JWTDynamicRBAC.API.Features.Auth
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddHours(2),
+                expires: DateTime.UtcNow.AddMinutes(1),
                 signingCredentials: creds
             );
 

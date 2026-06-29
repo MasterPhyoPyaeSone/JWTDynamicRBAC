@@ -5,6 +5,7 @@
 @inject NavigationManager Nav
 @inject IHttpContextAccessor HttpContextAccessor
 @using System.Net.Http.Headers
+@using System.Net;
 
 
 <AuthorizeView Roles="Admin">
@@ -77,33 +78,54 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        if (!user.Identity.IsAuthenticated || !user.IsInRole("Admin"))
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            if (!user.Identity.IsAuthenticated || !user.IsInRole("Admin"))
+            {
+                Nav.NavigateTo("/login", forceLoad: true);
+            }
+            // Role များနှင့် Permission အားလုံးကို API မှ ယူမည်
+            SetAuthHeader();
+            roles = await Http.GetFromJsonAsync<List<RoleDto>>("api/roles") ?? new();
+            SetAuthHeader();
+            allPermissions = await Http.GetFromJsonAsync<List<PermissionDto>>("api/roles/permissions") ?? new();
+            isLoading = false;
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // 401 ဖြစ်ရင် ဒီမှာ ဖမ်းလိုက်ပါ
+            await HandleUnauthorized();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Other Error: " + ex.Message);
+        }
+    }
+
+    private async Task HandleUnauthorized()
+    {
+        // Cookie ဖြတ်ပြီး Login ကို ပို့မယ်
+         await JS.InvokeVoidAsync("authFunctions.logout");
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var token = HttpContextAccessor.HttpContext?.Request.Cookies[key: "authToken"];
+        if (string.IsNullOrEmpty(token))
         {
             Nav.NavigateTo("/login", forceLoad: true);
         }
-        // Role များနှင့် Permission အားလုံးကို API မှ ယူမည်
-        roles = await Http.GetFromJsonAsync<List<RoleDto>>("api/roles") ?? new();
-        allPermissions = await Http.GetFromJsonAsync<List<PermissionDto>>("api/roles/permissions") ?? new();
-        isLoading = false;
     }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        var token =  HttpContextAccessor.HttpContext?.Request.Cookies[key: "authToken"];
-        if(string.IsNullOrEmpty(token))
-        {
-            Nav.NavigateTo("/login",forceLoad: true);
-        }
-    }  
 
     private void SetAuthHeader()
     {
         var token = HttpContextAccessor.HttpContext?.Request.Cookies[key: "authToken"];
-        if(string.IsNullOrEmpty(token)){
-            Http.DefaultRequestHeaders.Authorization=null;
-            Nav.NavigateTo("/login",forceLoad: true);
+        if (string.IsNullOrEmpty(token))
+        {
+            Http.DefaultRequestHeaders.Authorization = null;
+            Nav.NavigateTo("/login", forceLoad: true);
         }
 
         Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -118,9 +140,21 @@
             selectedRoleName = roles.FirstOrDefault(r => r.Id == roleId)?.RoleName ?? "";
 
             // ရွေးချယ်လိုက်သော Role ၏ လက်ရှိ Permission များကို API မှ ယူမည်
-            SetAuthHeader();
-            var existingPerms = await Http.GetFromJsonAsync<List<int>>($"api/roles/{roleId}/permissions");
-            selectedPermissionIds = new HashSet<int>(existingPerms ?? new List<int>());
+            try
+            {
+                SetAuthHeader();
+                var existingPerms = await Http.GetFromJsonAsync<List<int>>($"api/roles/{roleId}/permissions");
+                selectedPermissionIds = new HashSet<int>(existingPerms ?? new List<int>());
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                // 401 ဖြစ်ရင် ဒီမှာ ဖမ်းလိုက်ပါ
+                await HandleUnauthorized();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Other Error: " + ex.Message);
+            }
         }
         else
         {
@@ -143,8 +177,7 @@
 
     private async Task SavePermissions()
     {
-            SetAuthHeader();
-
+        SetAuthHeader();
         var response = await Http.PostAsJsonAsync($"api/roles/{selectedRoleId}/permissions", selectedPermissionIds.ToList());
 
         if (response.IsSuccessStatusCode)

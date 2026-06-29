@@ -27,3 +27,4 @@ window.getCookieToken = function () {
     var match = document.cookie.match(/(?:^|; )authToken=([^;]*)/);
     return match ? decodeURIComponent(match[1]) : null;
 };
+

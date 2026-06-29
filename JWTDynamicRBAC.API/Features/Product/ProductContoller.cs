@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using JWTDynamicRBAC.API.Features.Product;
-using JWTDynamicRBAC.API.Features.Filters; // 💡 Custom Filter နေရာ
+using JWTDynamicRBAC.API.Features.Filters;
+using Microsoft.AspNetCore.Authorization; // 💡 Custom Filter နေရာ
 
 namespace JWTDynamicRBAC.API.Features.Product
 {
@@ -18,6 +19,7 @@ namespace JWTDynamicRBAC.API.Features.Product
        // ==========================================
         // 1. CREATE (POST: api/Product)
         // ==========================================
+        [Authorize]// ဒါလေး တပ်ထားမှသာ Token ကို Valid ဖြစ်မဖြစ် API က စစ်ပါမယ်
         [HttpPost]
         [Permission("Create_Product")]
         public async Task<IActionResult> CreateProduct([FromBody] ProductDto request)
@@ -37,6 +39,7 @@ namespace JWTDynamicRBAC.API.Features.Product
         // ==========================================
         // 2. READ ALL (GET: api/Product)
         // ==========================================GetAllProductsAsync
+        [Authorize]
         [HttpGet]
         [Permission("View_Product")]
         public async Task<IActionResult> GetAllProducts()
@@ -49,6 +52,7 @@ namespace JWTDynamicRBAC.API.Features.Product
         // ==========================================
         // 3. READ BY ID (GET: api/Product/{id})
         // ==========================================
+        [Authorize]
         [HttpGet("{id}")]
         [Permission("View_Product")] 
         public async Task<IActionResult> GetProductById(int id)
@@ -67,6 +71,7 @@ namespace JWTDynamicRBAC.API.Features.Product
         // ==========================================
         // 4. UPDATE (PUT: api/Product/{id})
         // ==========================================
+        [Authorize]
         [HttpPut("{id}")]
         [Permission("Edit_Product")] 
         public async Task<IActionResult> UpdateProduct(int id, [FromBody] ProductDto request)
@@ -89,6 +94,7 @@ namespace JWTDynamicRBAC.API.Features.Product
         // ==========================================
         // 5. DELETE (DELETE: api/Product/{id})
         // ==========================================
+        [Authorize]
         [HttpDelete("{id}")]
         [Permission("Delete_Product")] 
         public async Task<IActionResult> DeleteProduct(int id)

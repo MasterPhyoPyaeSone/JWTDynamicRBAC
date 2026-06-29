@@ -11,6 +11,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 // Services များကို Register လုပ်ခြင်း
 builder.Services.AddScoped<JWTDynamicRBAC.API.Features.Auth.IAuthService, JWTDynamicRBAC.API.Features.Auth.AuthService>();
 builder.Services.AddScoped<JWTDynamicRBAC.API.Features.Product.IProductService, JWTDynamicRBAC.API.Features.Product.ProductService>();
@@ -71,6 +72,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero,//this is for token expired
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],

@@ -22,5 +22,13 @@ public class UpdateUserDto
 }
 
 // Role နဲ့ Permission DTOs (ယခင်ပေးထားတဲ့အတိုင်း)
-public class RoleDto { public int Id { get; set; } public string RoleName { get; set; } = null!; }
-public class PermissionDto { public int Id { get; set; } public string PermissionName { get; set; } = null!; }
+public class RoleDto 
+{ 
+    public int Id { get; set; } 
+    public string RoleName { get; set; } = null!; 
+}
+public class PermissionDto 
+{ 
+    public int Id { get; set; } 
+    public string PermissionName { get; set; } = null!; 
+}

@@ -2,11 +2,12 @@
 @* @attribute [Authorize] *@
 @inject Microsoft.AspNetCore.Components.Authorization.AuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveServer
-
 @using System.Net.Http.Headers
 @inject HttpClient Http
 @inject IHttpContextAccessor HttpContextAccessor
 @inject NavigationManager Nav
+@using System.Net;
+@inject IJSRuntime JS
 
 @* အပြင်ဆုံး Authorization စစ်ဆေးခြင်း *@
 <AuthorizeView>
@@ -48,47 +49,47 @@
 
             @* --- ဇယား (Product Table) နှင့် View ခွင့်ပြုချက် --- *@
             <AuthorizeView Policy="View_Product" Context="viewCtx">
-                <Authorized>               
-                        <table class="table table-hover table-bordered bg-white shadow-sm">
-                            <thead class="table-dark">
+                <Authorized>
+                    <table class="table table-hover table-bordered bg-white shadow-sm">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Price</th>
+                                <th>Description</th>
+                                <th width="150">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in products)
+                            {
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Name</th>
-                                    <th>Price</th>
-                                    <th>Description</th>
-                                    <th width="150">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in products)
-                                {
-                                    <tr>
-                                        <td>@item.Id</td>
-                                        <td>@item.Name</td>
-                                        <td>$@item.Price</td>
-                                        <td>@item.Description</td>
-                                        <td>
-                                            @* Edit ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
-                                            <AuthorizeView Policy="Edit_Product" Context="editCtx">
-                                                <Authorized>
-                                                    <button class="btn btn-sm btn-warning"
-                                                            @onclick="() => ShowEditForm(item)">Edit</button>
-                                                </Authorized>
-                                            </AuthorizeView>
+                                    <td>@item.Id</td>
+                                    <td>@item.Name</td>
+                                    <td>$@item.Price</td>
+                                    <td>@item.Description</td>
+                                    <td>
+                                        @* Edit ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
+                                        <AuthorizeView Policy="Edit_Product" Context="editCtx">
+                                            <Authorized>
+                                                <button class="btn btn-sm btn-warning"
+                                                        @onclick="() => ShowEditForm(item)">Edit</button>
+                                            </Authorized>
+                                        </AuthorizeView>
 
-                                            @* Delete ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
-                                            <AuthorizeView Policy="Delete_Product" Context="delCtx">
-                                                <Authorized>
-                                                    <button class="btn btn-sm btn-danger ms-1"
-                                                            @onclick="() => DeleteProduct(item.Id)">Delete</button>
-                                                </Authorized>
-                                            </AuthorizeView>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    
+                                        @* Delete ခလုတ်အတွက် Context သတ်မှတ်ခြင်း *@
+                                        <AuthorizeView Policy="Delete_Product" Context="delCtx">
+                                            <Authorized>
+                                                <button class="btn btn-sm btn-danger ms-1"
+                                                        @onclick="() => DeleteProduct(item.Id)">Delete</button>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
                 </Authorized>
                 <NotAuthorized>
                     <div class="alert alert-warning">သင်သည် ဤအချက်အလက်များကို ကြည့်ရှုခွင့်မရှိပါ။</div>
@@ -106,17 +107,33 @@
     // 💡 Cookie သုံးထားသဖြင့် OnInitializedAsync တွင် Data ချက်ချင်းဆွဲနိုင်ပါပြီ
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-
-        var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
-        Console.WriteLine("DEBUG: Cookie token is: " + (token ?? "NULL"));
-
-        if (!user.Identity.IsAuthenticated)
+        try
         {
-            // 💡 ဒီနေရာမှာ ဘာကြောင့် မ Authentication ဖြစ်တာလဲဆိုတာကို
-            // မျက်စိနဲ့ မြင်ရအောင် စာသားထုတ်ပြကြည့်ပါ
-            Nav.NavigateTo("/login",forceLoad: true);
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+            var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
+            if (!user.Identity.IsAuthenticated)
+            {
+                Nav.NavigateTo("/login", forceLoad: true);
+            }
+            await LoadProducts();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await HandleUnauthorized();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Other Error: " + ex.Message);
+        }
+
+
+        //Console.WriteLine("DEBUG: Cookie token is: " + (token ?? "NULL"));
+
+        @* if (!user.Identity.IsAuthenticated)
+        {
+            Nav.NavigateTo("/login", forceLoad: true);
             Console.WriteLine("User is NOT authenticated!");
         }
         else
@@ -124,16 +141,12 @@
             Console.WriteLine("User IS authenticated as: " + user.Identity.Name);
         }
 
-        await LoadProducts();
+        await LoadProducts(); *@
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-       if (firstRender)
-        { 
-            await LoadProducts(); 
-            StateHasChanged(); 
-        }
+
         // 💡 Page ပွင့်နေစဉ်အတွင်း Cookie ပျောက်သွားရင် ချက်ချင်းထုတ်ထုတ်ပစ်မယ်
         var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
         if (string.IsNullOrEmpty(token))
@@ -145,6 +158,7 @@
     // 💡 Cookie ထဲမှ Token ကို ယူ၍ Header တွင် ထည့်ပေးခြင်း
     private void SetAuthHeader()
     {
+        Http.DefaultRequestHeaders.Authorization = null;
         var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
         // 💡 အရေးကြီး: Token မရှိတော့ရင် Header ကို ရှင်းပစ်ပါ
         if (string.IsNullOrEmpty(token))
@@ -157,14 +171,37 @@
         Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
+    private readonly IJSRuntime? js;
+    private async Task HandleUnauthorized()
+    {
+        // Cookie ဖြတ်ပြီး Login ကို ပို့မယ်
+        //await js.InvokeVoidAsync("document.cookie", "authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;");
+        await JS.InvokeVoidAsync("authFunctions.logout");
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+
     private async Task LoadProducts()
     {
-        SetAuthHeader();
-        var response = await Http.GetAsync("api/Product");
-        if (response.IsSuccessStatusCode)
+        try
         {
-            products = await response.Content.ReadFromJsonAsync<List<ProductDto>>() ?? new();
+            SetAuthHeader();
+            var response = await Http.GetAsync("api/Product");
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                await HandleUnauthorized();
+                return;
+            }
+            if (response.IsSuccessStatusCode)
+            {
+                products = await response.Content.ReadFromJsonAsync<List<ProductDto>>() ?? new();
+            }
         }
+        catch (Exception ex)
+        {
+            // ဒီနေရာမှာ Error ကို Console ထုတ်ပါ (Circuit မပြတ်အောင်)
+            Console.WriteLine($"Error loading products: {ex.Message}");
+        }
+
     }
 
     private async Task SaveProduct()
@@ -184,10 +221,10 @@
         await LoadProducts();
     }
 
-    private void ShowCreateForm() 
-    { 
-        productModel = new ProductDto(); 
-        isEditMode = false; showForm = true; 
+    private void ShowCreateForm()
+    {
+        productModel = new ProductDto();
+        isEditMode = false; showForm = true;
     }
     private void ShowEditForm(ProductDto item)
     {
