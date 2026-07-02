@@ -60,7 +60,9 @@
                     //await JS.InvokeVoidAsync("setCookieToken", token);
                    // await JS.InvokeVoidAsync(identifier: "eval", $"document.cookie = \"authToken={result!.Token}; path=/; SameSite=Lax; Secure=false\";");
 
-                    await JS.InvokeVoidAsync("authFunctions.setSecureCookie", "authToken", result!.Token, 1);
+                    await JS.InvokeVoidAsync("authFunctions.setSecureCookie", "authToken", result!.Token, 10080);
+                    await JS.InvokeVoidAsync("authFunctions.setSecureCookie", "refreshToken", result!.RefreshToken, 10080);
+
                     // ၄။ AuthStateProvider ကို notify လုပ်မည်
                     if (AuthStateProvider is JWTDynamicRBAC.BlazorUI.Auth.CustomAuthStateProvider customProvider)
                     {
@@ -95,6 +97,7 @@
     public class LoginResponse
     {
         public string Token { get; set; } = "";
+        public string RefreshToken { get; set; } = "";
         public string Message { get; set; } = "";
     }
 }

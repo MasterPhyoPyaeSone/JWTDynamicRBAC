@@ -6,18 +6,37 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// ၁။ Handler ကို Register လုပ်မယ်
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<RefreshTokenHandler>();
+builder.Services.AddScoped(sp => 
+{
+    // ၁။ User ရဲ့ လက်ရှိ Circuit (Scope) ထဲက Handler ကို ဆွဲထုတ်မယ် (ဒါမှ JS သုံးလို့ရမည်)
+    var handler = sp.GetRequiredService<RefreshTokenHandler>();
+    
+    // ၂။ Handler အလုပ်လုပ်ရန် InnerHandler မဖြစ်မနေ လိုအပ်သည်
+    handler.InnerHandler = new HttpClientHandler(); 
+    
+    // ၃။ Factory ကို မသုံးတော့ဘဲ HttpClient ကို တိုက်ရိုက် တည်ဆောက်ပြီး Handler ကို တပ်ဆင်မယ်
+    return new HttpClient(handler)
+    {
+        BaseAddress = new Uri("http://localhost:5191/") // 💡 သင့် API လိပ်စာ
+    };
+});
 // ၁။ API အတွက် HttpClient ကို Factory ဖြင့် မှတ်ပုံတင်ခြင်း
-builder.Services.AddHttpClient("API", client => 
-    client.BaseAddress = new Uri("http://localhost:5191/")); // သင့် API Port ကို ပြင်ပါ
+// builder.Services.AddHttpClient("API", client => 
+//     client.BaseAddress = new Uri("http://localhost:5191/"))
+//     .AddHttpMessageHandler<RefreshTokenHandler>(); // 💡 ဒီနေရာမှာ ကြားခံ Handler ကို တပ်ဆင်လိုက်တာပါ
 
-// ထို HttpClient ကို Blazor Component များမှ အလွယ်တကူ လှမ်းခေါ်နိုင်ရန် Inject လုပ်ပေးခြင်း
-builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("API"));
+// // ထို HttpClient ကို Blazor Component များမှ အလွယ်တကူ လှမ်းခေါ်နိုင်ရန် Inject လုပ်ပေးခြင်း
+// builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("API"));
 
 // 💡 ၁။ Browser မှ Cookie များကို ဖတ်နိုင်ရန် ဤစာကြောင်းကို ထည့်ပါ
 builder.Services.AddHttpContextAccessor();

@@ -107,7 +107,7 @@
     private async Task HandleUnauthorized()
     {
         // Cookie ဖြတ်ပြီး Login ကို ပို့မယ်
-         await JS.InvokeVoidAsync("authFunctions.logout");
+        await JS.InvokeVoidAsync("authFunctions.logout");
         Nav.NavigateTo("/login", forceLoad: true);
     }
     protected override async Task OnAfterRenderAsync(bool firstRender)

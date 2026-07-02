@@ -14,23 +14,25 @@
 
 <body>
     @* 💡 InteractiveServer ဖြင့် အလုပ်လုပ်ရန် render mode ထည့်ပေးလိုက်ပါ *@
-    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)"/>
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <script src="app.js"></script>
     <script src="_framework/blazor.web.js"></script>
 
     @* this is authToken in Cookies *@
-   <script>
+    <script>
 
-    window.authFunctions = {
-        setSecureCookie: function(name, value, expiryInMinutes) {
-            let maxAgeSeconds = expiryInMinutes * 60;
-            document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax; Secure`;
+        window.authFunctions = {
+        setSecureCookie: function (name, value, expiryInMinutes) {
+        let maxAgeSeconds = expiryInMinutes * 60;
+        document.cookie = `${name}=${value}; path=/; max-age=${maxAgeSeconds}; SameSite=Lax; Secure`;
         },
-        logout: function() {
-            document.cookie = "authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        logout: function () {
+        // 💡 ဖန်တီးတုန်းကပါတဲ့ SameSite=Lax; Secure ကို အတိအကျ ပြန်ထည့်ပြီးမှ ဖျက်ရပါမယ်
+        document.cookie = "authToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax; Secure";
+        document.cookie = "refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax; Secure";
         }
-    };
-</script>
+        };
+    </script>
 </body>
 
 </html>

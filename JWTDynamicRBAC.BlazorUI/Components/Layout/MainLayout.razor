@@ -41,14 +41,23 @@
 @code {
     private async Task HandleLogout()
     {
-        // 💡 API ကို တိုက်ရိုက် ခေါ်ပါ
+        // ၁။ API ကို တိုက်ရိုက် ခေါ်ပါ (Backend ဘက်က Token ဖျက်ရန်)
         await Http.PostAsync("api/auth/logout", null);
 
-        // 💡 Browser Cookie ကို Client-side မှာလည်း ဖျက်ပါ
-        await JS.InvokeVoidAsync("eval", "document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;'");
-        //((CustomAuthStateProvider)AuthStateProvider).NotifyUserLogout();
+        // 💡 ၂။ Browser Cookie ထဲက Token (၂) ခုလုံးကို အမြစ်ပြတ် ဖျက်မည့် Code 
+        // (မှတ်ချက် - ဖန်တီးစဉ်က ပါဝင်သော SameSite=Lax; Secure; ကို မဖြစ်မနေ ထည့်ပေးထားပါသည်)
+        var clearAuthToken = "document.cookie = 'authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax; Secure;'; ";
+        var clearRefreshToken = "document.cookie = 'refreshToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax; Secure;'; ";
+        
+        await JS.InvokeVoidAsync("eval", clearAuthToken + clearRefreshToken);
 
-        // 💡 Login စာမျက်နှာသို့ အတင်းပြန်ပို့ပါ
+        // ၃။ Auth State ကို ချက်ချင်း Update လုပ်ရန် Comment ဖြုတ်သုံးသင့်ပါသည်
+        if (AuthStateProvider is JWTDynamicRBAC.BlazorUI.Auth.CustomAuthStateProvider customProvider)
+        {
+            customProvider.NotifyUserLogout();
+        }
+
+        // ၄။ Login စာမျက်နှာသို့ အတင်းပြန်ပို့ပါ
         Nav.NavigateTo("/login", forceLoad: true);
     }
 }

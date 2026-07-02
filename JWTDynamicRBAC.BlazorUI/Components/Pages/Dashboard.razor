@@ -109,19 +109,15 @@
     {
         try
         {
-
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var user = authState.User;
-            var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
             if (!user.Identity.IsAuthenticated)
             {
                 Nav.NavigateTo("/login", forceLoad: true);
+                return;
+
             }
             await LoadProducts();
-        }
-        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            await HandleUnauthorized();
         }
         catch (Exception ex)
         {
@@ -146,7 +142,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-
+        
         // 💡 Page ပွင့်နေစဉ်အတွင်း Cookie ပျောက်သွားရင် ချက်ချင်းထုတ်ထုတ်ပစ်မယ်
         var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
         if (string.IsNullOrEmpty(token))

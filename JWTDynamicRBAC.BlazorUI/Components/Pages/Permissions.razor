@@ -5,6 +5,7 @@
 @inject NavigationManager Nav
 @using System.Net.Http.Headers
 @inject AuthenticationStateProvider AuthStateProvider
+@using System.Net;
 
 <AuthorizeView Roles="Admin">
     <Authorized>
@@ -175,25 +176,31 @@
     private List<PermissionDto> permissions = new();
     private PermissionFormDto currentPermission = new();
     private PermissionDto? permissionToDelete;
-
     protected override async Task OnInitializedAsync()
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
-        if(!user.Identity.IsAuthenticated || !user.IsInRole("Admin")) 
+        try
         {
-             Nav.NavigateTo("/login", forceLoad: true);
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = authState.User;
+
+            if (!user.Identity.IsAuthenticated || !user.IsInRole("Admin"))
+            {
+                Nav.NavigateTo("/login", forceLoad: true);
+                return; // 💡 အရေးကြီး: အောက်က Code တွေကို ဆက်မလုပ်တော့ဘဲ ဒီကနေ ချက်ချင်း ထွက်ပါ
+            }
+
+            // အပေါ်က Permission စစ်တာ အောင်မြင်မှသာ Data ကို ဆက်ခေါ်ပါမယ်
+            await LoadPermissions();
         }
-        await LoadPermissions();
+        catch (Exception ex)
+        {
+            // ဒီမှာတော့ AuthState စစ်တဲ့အချိန် တက်လာနိုင်တဲ့ အခြား Error တွေကိုပဲ ဖမ်းပါမယ်
+            Console.WriteLine("Init Error: " + ex.Message);
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
-        { 
-            await LoadPermissions(); 
-            StateHasChanged(); 
-        }
 
         // 💡 Page ပွင့်နေစဉ်အတွင်း Cookie ပျောက်သွားရင် ချက်ချင်းထုတ်ထုတ်ပစ်မယ်
         var token = HttpContextAccessor.HttpContext?.Request.Cookies[key: "authToken"];
@@ -206,6 +213,7 @@
     // 💡 Cookie ထဲမှ Token ကို ယူ၍ Header တွင် ထည့်ပေးခြင်း
     private void SetAuthHeader()
     {
+        Http.DefaultRequestHeaders.Authorization = null;
         var token = HttpContextAccessor.HttpContext?.Request.Cookies["authToken"];
         if (string.IsNullOrEmpty(token))
         {
@@ -215,6 +223,14 @@
         }
 
         Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+    }
+
+    private async Task HandleUnauthorized()
+    {
+        // Cookie ဖြတ်ပြီး Login ကို ပို့မယ်
+        await JS.InvokeVoidAsync("authFunctions.logout");
+        Nav.NavigateTo("/login", forceLoad: true);
     }
 
     private async Task LoadPermissions()
@@ -224,16 +240,21 @@
         try
         {
             SetAuthHeader();
-
             var result = await Http.GetFromJsonAsync<List<PermissionDto>>("api/permissions");
             if (result != null)
             {
                 permissions = result;
             }
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            // 401 ဖြစ်ရင် ဒီမှာ ဖမ်းလိုက်ပါ
+            await HandleUnauthorized();
+        }
         catch (Exception ex)
         {
-            errorMessage = $"Failed to load permissions: {ex.Message}";
+            Console.WriteLine("API Error: " + ex.Message);
+            errorMessage = "Failed to load data.";
         }
         finally
         {
